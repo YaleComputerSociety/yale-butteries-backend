@@ -14,22 +14,21 @@ const expo = new Expo()
 
 // TODO: merge this whole function into createOrder
 // start a checker to go off every 5 seconds, where if all order items are handled, send a push notification and pay for the order
-export async function createPushNotifications (req: Request, res: Response): Promise<void> {
+export async function createPushNotifications(req: Request, res: Response): Promise<void> {
   const requestBody = req.body as SubscribePushNotificationsBody
 
   const interval = setInterval(() => {
-    checkAndUpdateOrder(requestBody.transactionId, interval, requestBody.pushToken)
-      .catch(e => {
-        console.error('Error in interval: ', e)
-        clearInterval(interval)
-      })
+    checkAndUpdateOrder(requestBody.transactionId, interval, requestBody.pushToken).catch((e) => {
+      console.error('Error in interval: ', e)
+      clearInterval(interval)
+    })
   }, 5000)
 
   res.json('Ongoing order function has been exited')
 }
 
 // TODO: put the update order part of this function into the updateOrderItem function instead of here, and then only check the order status in this function
-async function checkAndUpdateOrder (transactionId: number, interval: NodeJS.Timer, token?: string): Promise<void> {
+async function checkAndUpdateOrder(transactionId: number, interval: NodeJS.Timer, token?: string): Promise<void> {
   const order = await getOrderFromId(transactionId)
   const items = order.orderItems
 
@@ -48,13 +47,19 @@ async function checkAndUpdateOrder (transactionId: number, interval: NodeJS.Time
       id: transactionId,
       readyAt: new Date(),
       status: 'READY',
-      price
+      price,
     })
 
     console.log('check')
     if (token != null) {
       console.log('hye')
-      sendNotification(token, true).then((s) => { console.log('sent the notification: ', s) }).catch(e => { throw e })
+      sendNotification(token, true)
+        .then((s) => {
+          console.log('sent the notification: ', s)
+        })
+        .catch((e) => {
+          throw e
+        })
     }
 
     // const pii = await getPaymentIntentIdFromId(requestBody.transactionId)
@@ -65,15 +70,17 @@ async function checkAndUpdateOrder (transactionId: number, interval: NodeJS.Time
     console.log('failed')
     clearInterval(interval)
 
-    if (orderStatus === OrderStatus.CANCELLED && (token != null)) {
-      sendNotification(token, false).catch(e => { throw e })
+    if (orderStatus === OrderStatus.CANCELLED && token != null) {
+      sendNotification(token, false).catch((e) => {
+        throw e
+      })
     }
 
     await updateOrderInternal({
       id: transactionId,
       readyAt: new Date(),
       status: 'CANCELLED',
-      price: 0
+      price: 0,
     })
 
     // stripe.paymentIntents.cancel(await getPaymentIntentIdFromId(requestBody.transactionId))
@@ -112,9 +119,12 @@ const sendNotification = async (expoPushToken: string, isSuccessful: boolean): P
   const message = {
     to: expoPushToken,
     sound: 'default' as const,
-    body: isSuccessful ? `Your order is ready for pickup!  ${String.fromCodePoint(0x1f601)}` : 'Your order was cancelled',
-    data: { withSome: 'data' }
+    body: isSuccessful
+      ? `Your order is ready for pickup!  ${String.fromCodePoint(0x1f601)}`
+      : `Your order was cancelled. ${String.fromCodePoint(0x1f614)}`,
+    data: { withSome: 'data' },
   }
+
   console.log('token: ', expoPushToken)
 
   try {
