@@ -1,57 +1,44 @@
-import { Request, Response } from 'express'
+import type { Request, Response } from 'express'
 
-import prisma from '../prismaClient'
-import { formatCollege } from '../utils/dtoConverters'
+import prisma from '@src/config/prismaClient'
+import { formatCollege } from '@utils/dtoConverters'
+import HTTPError from '@src/utils/httpError'
+import { getCollegeFromId } from '@src/utils/prismaUtils'
+import type { UpdateCollegeBody } from '@src/utils/bodyTypes'
 
-export async function getAllColleges(_: Request, res: Response): Promise<void> {
-  try {
-    const colleges = await prisma.college.findMany(includeProperty)
-    const frontendColleges = colleges.map((college) => formatCollege(college))
-    res.send(JSON.stringify(frontendColleges))
-  } catch (e) {
-    console.log(e)
-    res.status(400).send(e)
-  }
+export interface TypedRequest<Params, Body> extends Express.Request {
+  params: Params
+  body: Body
 }
 
-export async function getCollege(req: Request, res: Response): Promise<void> {
-  try {
-    const college = await prisma.college.findUnique({
-      ...includeProperty,
-      where: {
-        id: parseInt(req.params.collegeId),
-      },
-    })
-    res.send(JSON.stringify(college))
-  } catch (e) {
-    res.status(400).send(e)
-  }
+export async function getAllColleges (_: Request, res: Response): Promise<void> {
+  const colleges = await prisma.college.findMany()
+  const formattedColleges = colleges.map((college) => formatCollege(college))
+  res.json(formattedColleges)
 }
 
-export async function updateCollege(req: Request, res: Response): Promise<void> {
-  try {
-    console.log(req.body)
-    const result = await prisma.college.update({
-      where: {
-        id: parseInt(req.params.collegeId),
-      },
-      data: {
-        daysOpen: req.body.daysOpen,
-        isOpen: req.body.isOpen,
-        openTime: req.body.openTime,
-        closeTime: req.body.closeTime,
-      },
-    })
-    console.log(result)
-    res.send(JSON.stringify(result))
-  } catch (e) {
-    console.log(e)
-    res.status(400).send(e)
-  }
+export async function getCollege (req: Request, res: Response): Promise<void> {
+  const college = await getCollegeFromId(parseInt(req.params.collegeId))
+  const formattedCollege = formatCollege(college)
+  res.json(formattedCollege)
 }
 
-const includeProperty = {
-  include: {
-    menuItems: true,
-  },
+export async function updateCollege (req: Request, res: Response): Promise<void> {
+  const requestBody = req.body as UpdateCollegeBody
+
+  const college = await prisma.college.update({
+    where: {
+      id: parseInt(req.params.collegeId)
+    },
+    data: {
+      daysOpen: requestBody.daysOpen,
+      isOpen: requestBody.isOpen,
+      openTime: requestBody.openTime,
+      closeTime: requestBody.closeTime
+    }
+  })
+  if (college === null) throw new HTTPError(`No college found with ID ${req.params.collegeId}`, 404)
+
+  const formattedCollege = formatCollege(college)
+  res.json(formattedCollege)
 }

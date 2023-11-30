@@ -24,7 +24,6 @@ This is where all the api endpoints are defined and run, and also where the data
   - `yarn migrate` runs database migrations, for when `prisma/schema.prisma` is altered. You'll need to rebuild the image with `docker compose build` before you can run the container again
   - `yarn seed` seeds the database with the values in `prisma/seed.ts`
   - `yarn initialize` combines migrate and seed
-  
 - If you change the dependencies or database schema, you must rebuild the image with `docker compose build` before you run the container again
 
 ## Heroku Deployment
@@ -71,6 +70,7 @@ SELECT id, order_complete, in_progress, total_price, "collegeId", "userId", char
 UPDATE "TransactionItem" SET order_status = 'FINISHED' WHERE id=?;
 SELECT id, is_active, item, price, "collegeId" FROM "MenuItem";
 UPDATE "MenuItem" SET is_active = false WHERE id=1;
+UPDATE "user" SET role='STAFF' WHERE "netId"='blah';
 ```
 
 ## Prisma

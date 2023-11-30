@@ -1,5 +1,5 @@
 // DTO stands for Data Transfer Object
-// These are the frontend object types, which we need to know when receiving and sending data
+// These are the frontend object types, which we need to know when sending data and sometimes when receiving data
 
 export interface UserDto {
   id: string
@@ -12,11 +12,11 @@ export interface UserDto {
 }
 
 export interface OrderItemDto {
+  id: number
   itemCost: number
   orderStatus: string
   menuItemId: number
   name: string
-  id: number
   user: string
 }
 

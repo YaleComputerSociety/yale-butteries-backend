@@ -1,42 +1,90 @@
-import { OrderItem, Order } from '@prisma/client'
-import { Request, Response } from 'express'
+import type { Request, Response } from 'express'
+// import type { ExpoPushTicket } from 'expo-server-sdk'
 import { Expo } from 'expo-server-sdk'
-import { updateOrderInner } from './Orders'
-import Stripe from 'stripe'
-import prisma from '../prismaClient'
 
-enum Status {
-  Incomplete,
-  Complete,
-  Cancelled,
-  TimedOut,
+import type { OrderItem, Order } from '@prisma/client'
+import { OrderStatus } from '@prisma/client'
+import type { SubscribePushNotificationsBody } from '@utils/bodyTypes'
+import { getOrderFromId, updateOrderInternal } from '@utils/prismaUtils'
+import { MILLISECONDS_UNTIL_ORDER_IS_EXPIRED } from '@src/utils/constants'
+// import { stripe } from '@src/config/stripe'
+
+// { accessToken: process.env.EXPO_ACCESS_TOKEN }
+const expo = new Expo()
+
+// TODO: merge this whole function into createOrder
+// start a checker to go off every 5 seconds, where if all order items are handled, send a push notification and pay for the order
+export async function createPushNotifications (req: Request, res: Response): Promise<void> {
+  const requestBody = req.body as SubscribePushNotificationsBody
+
+  const interval = setInterval(() => {
+    checkAndUpdateOrder(requestBody.transactionId, interval, requestBody.pushToken).catch((e) => {
+      console.error('Error in interval: ', e)
+      clearInterval(interval)
+    })
+  }, 5000)
+
+  res.json('Ongoing order function has been exited')
 }
 
-interface NotificationMessage {
-  to: string
-}
+// TODO: put the update order part of this function into the updateOrderItem function instead of here, and then only check the order status in this function
+async function checkAndUpdateOrder (transactionId: number, interval: NodeJS.Timer, token?: string): Promise<void> {
+  const order = await getOrderFromId(transactionId)
+  const items = order.orderItems
 
-// Create a new Expo SDK client
-// optionally providing an access token if you have enabled push security
-const environment = process.env.NODE_ENV || 'development'
+  // This is the part that should be merged into updateOrderItem
+  const orderStatus = checkItems(items, order)
 
-// export const stripe = new Stripe(
-//   environment === 'development' ? process.env.STRIPE_SECRET_KEY_DEV : process.env.STRIPE_SECRET_KEY_PROD,
-//   {
-//     apiVersion: '2020-08-27',
-//   }
-// )
+  if (orderStatus === OrderStatus.READY) {
+    console.log('ready')
+    clearInterval(interval)
 
-const getOrderFromId = async (id: number): Promise<Order & { orderItems: OrderItem[] }> => {
-  const res = await prisma.order.findUnique({
-    include: {
-      orderItems: true,
-    },
-    where: {
-      id: id,
-    },
-  })
-  return res
+    const price = items.reduce((total, item) => {
+      return item.status === 'READY' ? total + item.price : total
+    }, 0)
+
+    await updateOrderInternal({
+      id: transactionId,
+      readyAt: new Date(),
+      status: 'READY',
+      price
+    })
+
+    console.log('check')
+    if (token != null) {
+      console.log('hye')
+      sendNotification(token, true)
+        .then((s) => {
+          console.log('sent the notification: ', s)
+        })
+        .catch((e) => {
+          throw e
+        })
+    }
+
+    // const pii = await getPaymentIntentIdFromId(requestBody.transactionId)
+    // await stripe.paymentIntents.capture(pii, {
+    //   amount_to_capture: price,
+    // })
+  } else if (orderStatus === OrderStatus.CANCELLED || orderStatus === OrderStatus.TIMEOUT) {
+    console.log('failed')
+    clearInterval(interval)
+
+    if (orderStatus === OrderStatus.CANCELLED && token != null) {
+      sendNotification(token, false).catch((e) => {
+        throw e
+      })
+    }
+
+    await updateOrderInternal({
+      id: transactionId,
+      readyAt: new Date(),
+      status: 'CANCELLED',
+      price: 0
+    })
+
+    // stripe.paymentIntents.cancel(await getPaymentIntentIdFromId(requestBody.transactionId))
+  }
 }
 
 // const getPaymentIntentIdFromId = async (id: number): Promise<string> => {
@@ -48,123 +96,66 @@ const getOrderFromId = async (id: number): Promise<Order & { orderItems: OrderIt
 //   return res.paymentIntentId
 // }
 
-const checkItems = (items: OrderItem[], order: Order): number => {
-  const orderLifetime = Math.abs(new Date().getTime() - order.createdAt.getTime()) / 36e5
+// checks if all orderItems collectively have been handled, and if so return the order's status
+// TODO: this should happen during updateOrderItem, not here
+const checkItems = (items: OrderItem[], order: Order): OrderStatus => {
+  const orderLifetime = Math.abs(new Date().getTime() - order.createdAt.getTime())
   if (items.every((i) => i.status === 'CANCELLED')) {
     console.log('Order cancelled :(')
-    return Status.Cancelled
-  } else if (orderLifetime > 6) {
+    return OrderStatus.CANCELLED
+  } else if (orderLifetime > MILLISECONDS_UNTIL_ORDER_IS_EXPIRED) {
     console.log('Order timed out')
-    return Status.TimedOut
+    return OrderStatus.TIMEOUT
   } else if (items.every((i) => i.status === 'CANCELLED' || i.status === 'READY')) {
     console.log('order complete')
-    return Status.Complete
+    return OrderStatus.READY
   } else {
-    return Status.Incomplete
+    return OrderStatus.ONGOING
   }
 }
-async function getItems(id: string) {
-  return (await getOrderFromId(parseInt(id))).orderItems
-}
 
-const sendNotification = async (expoPushToken: string, data: NotificationMessage) => {
-  const expo = new Expo({ accessToken: process.env.ACCESS_TOKEN })
-
-  const chunks = expo.chunkPushNotifications([{ to: expoPushToken, ...data }])
-  const tickets = []
-
-  for (const chunk of chunks) {
-    try {
-      const ticketChunk = await expo.sendPushNotificationsAsync(chunk)
-      tickets.push(...ticketChunk)
-    } catch (error) {
-      console.error(error)
-    }
+const sendNotification = async (expoPushToken: string, isSuccessful: boolean): Promise<string> => {
+  console.log('trying to send')
+  const message = {
+    to: expoPushToken,
+    sound: 'default' as const,
+    body: isSuccessful
+      ? `Your order is ready for pickup!  ${String.fromCodePoint(0x1f601)}`
+      : `Your order was cancelled. ${String.fromCodePoint(0x1f614)}`,
+    data: { withSome: 'data' }
   }
 
-  let response = ''
+  console.log('token: ', expoPushToken)
 
-  for (const ticket of tickets) {
-    if (ticket.status === 'error') {
-      if (ticket.details && ticket.details.error === 'DeviceNotRegistered') {
-        response = 'DeviceNotRegistered'
-      }
-    }
-
-    if (ticket.status === 'ok') {
-      response = ticket.id
-    }
-  }
-
-  return response
-}
-
-export async function subscribePushNotifications(req: Request, res: Response): Promise<void> {
   try {
-    const token = req.body.pushToken
-
-    const messageComplete = {
-      to: token,
-      sound: 'default',
-      body: 'Your order is ready for pick up!  ' + String.fromCodePoint(0x1f601),
-      data: { withSome: 'data' },
-    }
-
-    const messageCancelled = {
-      to: token,
-      sound: 'default',
-      body: 'Your order was cancelled',
-      data: { withSome: 'data' },
-    }
-
-    const interval = setInterval(async () => {
-      const items = await getItems(req.body.transactionId)
-      const orderStatus = checkItems(items, await getOrderFromId(req.body.transactionId))
-
-      if (orderStatus === Status.Complete) {
-        let price = 0
-        items.forEach((i) => {
-          if (i.status === 'READY') {
-            price += i.price
-          }
-        })
-
-        clearInterval(interval)
-
-        if (token) {
-          sendNotification(token, messageComplete)
-        }
-
-        updateOrderInner({
-          body: {
-            id: req.body.transactionId,
-            order_complete: new Date(),
-            status: 'READY',
-            charged_price: price,
-          },
-        })
-        // const pii = await getPaymentIntentIdFromId(req.body.transactionId)
-        // await stripe.paymentIntents.capture(pii, {
-        //   amount_to_capture: price,
-        // })
-      } else if (orderStatus === Status.Cancelled || orderStatus === Status.TimedOut) {
-        clearInterval(interval)
-        if (orderStatus === Status.Cancelled && token) {
-          sendNotification(token, messageCancelled)
-        }
-        updateOrderInner({
-          body: {
-            id: req.body.transactionId,
-            order_complete: new Date(),
-            status: 'CANCELLED',
-            charged_price: 0,
-          },
-        })
-        // stripe.paymentIntents.cancel(await getPaymentIntentIdFromId(req.body.transactionId))
-      }
-    }, 5000)
-    res.send(JSON.stringify('exited order function'))
-  } catch (e) {
-    res.status(400).send(e)
+    const ticket = await expo.sendPushNotificationsAsync([message])
+    console.log(ticket)
+  } catch (error) {
+    console.error(error)
   }
+
+  // const chunks = expo.chunkPushNotifications([{ ...message }])
+  // const tickets: ExpoPushTicket[] = []
+
+  // for (const chunk of chunks) {
+  //   const ticketChunk = await expo.sendPushNotificationsAsync(chunk)
+  //   tickets.push(...ticketChunk)
+  // }
+
+  // let response = ''
+
+  // for (const ticket of tickets) {
+  //   if (ticket.status === 'error') {
+  //     if ((ticket.details != null) && ticket.details.error === 'DeviceNotRegistered') {
+  //       response = 'DeviceNotRegistered'
+  //     }
+  //   }
+
+  //   if (ticket.status === 'ok') {
+  //     response = ticket.id
+  //   }
+  // }
+
+  // return response
+  return 'hey'
 }

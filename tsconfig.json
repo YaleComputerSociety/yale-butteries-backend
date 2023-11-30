@@ -7,10 +7,20 @@
     "esModuleInterop": true,
     "module": "commonjs",
     "moduleResolution": "node",
-    "baseUrl": ".",
     "sourceMap": true,
-    "target": "es6"
+    "target": "es6",
+    "baseUrl": ".",
+    "paths": {
+      "@src/*": ["src/*"],
+      "@controllers/*": ["src/controllers/*"],
+      "@routes/*": ["src/routes/*"],
+      "@middlewares/*": ["src/middlewares/*"],
+      "@utils/*": ["src/utils/*"]
+    },
+    "strictNullChecks": true,
+    "outDir": "./dist",
   },
+  "include": ["src/**/*", "prisma", "stripe.ts"],
   "exclude": ["**/*.spec.ts", "node_modules", "vendor", "public"],
   "compileOnSave": false
 }

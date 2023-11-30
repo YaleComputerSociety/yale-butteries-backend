@@ -1,58 +1,54 @@
-import express from 'express'
+import type express from 'express'
+import type { NextFunction, Request, Response } from 'express'
 import passport from 'passport'
-import { Strategy } from 'passport-cas'
+import { Strategy } from 'passport-cas2'
 
-type User = {
+interface AuthUser {
   netId: string
 }
 
-const port = process.env.PORT || 3000
-export const environment = process.env.NODE_ENV || 'development'
-export const url = environment === 'production' ? `https://yale-butteries.herokuapp.com` : `http://localhost:${port}`
-
 passport.use(
-  new Strategy(
-    {
-      ssoBaseURL: 'https://secure.its.yale.edu/cas',
-      serverBaseURL: url,
-    },
-    function (login, done) {
-      return done(null, {
-        netId: login,
-      })
-    }
+  new Strategy({ casURL: 'https://secure.its.yale.edu/cas' }, (username: string, profile, done) => {
+    // TODO: create user right here instead of with separate endpoint call
+    const user = { netId: username }
+    done(null, user)
+  }
   )
 )
 
-passport.serializeUser<User>(function (user: any, done) {
+passport.serializeUser<string>((user: AuthUser, done) => {
   done(null, user.netId)
 })
 
-passport.deserializeUser(function (netId, done) {
-  done(null, {
-    netId,
-  })
+passport.deserializeUser<AuthUser>((netId, done) => {
+  done(null, { netId })
 })
 
-export default (app: express.Express): void | express.RequestHandler => {
+export default (app: express.Express): void => {
   app.use(passport.initialize())
   app.use(passport.session())
 
-  app.get('/cas', function (req, res, next) {
-    passport.authenticate('cas', function (err, user) {
-      if (err) {
-        return next(err)
+  app.get('/cas', (req: Request, res: Response, next: NextFunction) => {
+    passport.authenticate('cas', (err: Error | null, user: Express.User | null) => {
+      if (err != null) {
+        console.error('Authentication Error:', err)
+        next(err)
+        return
       }
 
-      if (!user) {
-        return res.redirect('/')
+      if (user == null) {
+        console.log('No user found')
+        res.redirect('/')
+        return
       }
 
-      req.logIn(user, function (err) {
-        if (err) {
-          return next(err)
+      req.logIn(user, (err: Error) => {
+        if (err != null) {
+          console.error('Login Error:', err)
+          next(err)
+          return
         }
-        res.send(JSON.stringify(user))
+        res.json(user)
       })
     })(req, res, next)
   })
