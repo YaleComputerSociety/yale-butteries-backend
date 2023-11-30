@@ -1,150 +1,74 @@
-import prisma from '../prismaClient'
-import { Request, Response } from 'express'
-import { getCollegeFromName, isMenuItemType } from '../utils/prismaUtils'
+import type { Request, Response } from 'express'
+
 import { MenuItemType } from '@prisma/client'
-import { MenuItemDto } from '../utils/dtos'
+import prisma from '@src/config/prismaClient'
+import { getCollegeFromName, getMenuItemFromId } from '@utils/prismaUtils'
+import { formatMenuItem } from '@utils/dtoConverters'
+import type { CreateMenuItemBody, UpdateMenuItemBody } from '@utils/bodyTypes'
 
-export async function getAllMenuItems(_: Request, res: Response): Promise<void> {
-  try {
-    const menuItems = await prisma.menuItem.findMany({
-      include: {
-        college: true,
-      },
-    })
-
-    const collegeIds = [...new Set(menuItems.map((item) => item.collegeId))]
-
-    const colleges = await prisma.college.findMany({
-      where: {
-        id: {
-          in: collegeIds,
-        },
-      },
-    })
-
-    const collegeMap = colleges.reduce((map, college) => {
-      map[college.id] = college.name
-      return map
-    }, {})
-
-    const frontMenuItems = menuItems.map((item) => ({
-      id: item.id,
-      item: item.name,
-      price: item.price,
-      college: collegeMap[item.collegeId],
-      isActive: item.isActive,
-      description: item.description,
-      foodType: item.type,
-    }))
-    res.send(frontMenuItems)
-  } catch (e) {
-    res.status(400).send(e.message)
-  }
+export async function getAllMenuItems (_: Request, res: Response): Promise<void> {
+  const menuItems = await prisma.menuItem.findMany({
+    include: {
+      college: true
+    }
+  })
+  const formattedMenuItems = menuItems.map((item) => formatMenuItem(item))
+  res.json(formattedMenuItems)
 }
 
-export async function getMenuItem(req: Request, res: Response): Promise<void> {
-  try {
-    const menuItem = await prisma.menuItem.findUnique({
-      where: {
-        id: parseInt(req.params.menuItemId),
-      },
-      include: {
-        college: true,
-      },
-    })
-    res.send(JSON.stringify(menuItem))
-  } catch (e) {
-    res.status(400).send(e)
-  }
+export async function getMenuItem (req: Request, res: Response): Promise<void> {
+  const menuItem = await getMenuItemFromId(parseInt(req.params.menuItemId))
+  const formattedMenuItem = formatMenuItem(menuItem)
+  res.json(formattedMenuItem)
 }
 
-export async function createMenuItem(req: Request, res: Response): Promise<void> {
-  interface NewMenuItem {
-    name: string
-    price: number
+export async function createMenuItem (req: Request, res: Response): Promise<void> {
+  const requestBody = req.body as CreateMenuItemBody
+
+  const collegeData = await getCollegeFromName(requestBody.college)
+
+  const menuItemData = {
+    name: requestBody.item,
+    price: requestBody.price,
     college: {
       connect: {
-        id: number
+        id: collegeData.id
       }
-    }
-    description?: string
-    isActive?: boolean
-    type?: MenuItemType
+    },
+    type: requestBody.foodType as MenuItemType ?? MenuItemType.FOOD,
+    isActive: requestBody.isActive,
+    description: requestBody.description ?? 'No description provided'
   }
-  try {
-    if (!req.body.item || !req.body.price || !req.body.college) {
-      res.status(400).send('Required fields are missing')
-      return
-    }
 
-    const collegeData = await getCollegeFromName(req.body.college)
-
-    const menuItemData: NewMenuItem = {
-      name: req.body.item,
-      price: parseInt(req.body.price),
-      college: {
-        connect: {
-          id: collegeData.id,
-        },
-      },
-    }
-
-    if (req.body.foodType && isMenuItemType(req.body.foodType)) menuItemData.type = req.body.foodType
-    if (req.body.isActive) menuItemData.isActive = req.body.email
-    menuItemData.description = req.body.description ? req.body.description : 'No description provided'
-
-    const newMenuItem = await prisma.menuItem.create({ data: menuItemData })
-    res.send(JSON.stringify(newMenuItem.id))
-  } catch (e) {
-    console.log(e)
-    res.status(400).send(e)
-  }
+  const newMenuItem = await prisma.menuItem.create({ data: menuItemData })
+  // TODO: change this in frontend so it can send the full object
+  res.json(newMenuItem.id)
 }
 
-export async function updateMenuItem(req: Request, res: Response): Promise<void> {
-  interface MenuItemUpdateData {
-    name?: string
-    price?: number
-    isActive?: boolean
-    description?: string
-    type?: MenuItemType
+export async function updateMenuItem (req: Request, res: Response): Promise<void> {
+  const requestBody = req.body as UpdateMenuItemBody
+
+  // check that the menu Item exists
+  await getMenuItemFromId(parseInt(req.params.menuItemId))
+
+  const menuItemData = {
+    name: requestBody.item ?? undefined,
+    price: requestBody.price ?? undefined,
+    isActive: requestBody.isActive ?? undefined,
+    description: requestBody.description ?? undefined,
+    type: requestBody.foodType as MenuItemType ?? undefined
   }
 
-  try {
-    if (Number.isInteger(req.params.menuItemId)) {
-      res.status(400).send('Invalid menu item ID')
-      return
+  const updatedMenuItem = await prisma.menuItem.update({
+    where: {
+      id: parseInt(req.params.menuItemId)
+    },
+    data: menuItemData,
+    include: {
+      college: true
     }
+  })
 
-    const menuItem = await prisma.menuItem.findUnique({
-      where: {
-        id: parseInt(req.params.menuItemId),
-      },
-    })
-
-    if (!menuItem) {
-      res.status(400).send('No menu item found at specified ID')
-      return
-    }
-
-    const menuItemInput: MenuItemDto = { ...req.body }
-
-    const menuItemData: MenuItemUpdateData = {}
-    if (menuItemInput.item) menuItemData.name = menuItemInput.item
-    if (menuItemInput.price && Number.isInteger(menuItemInput.price)) menuItemData.price = menuItemInput.price
-    if (menuItemInput.isActive != null) menuItemData.isActive = menuItemInput.isActive !== false
-    if (menuItemInput.description) menuItemData.description = menuItemInput.description
-    if (menuItemInput.foodType && isMenuItemType(menuItemInput.foodType)) menuItemData.type = menuItemInput.foodType
-
-    const newMenuItem = await prisma.menuItem.update({
-      where: {
-        id: parseInt(req.params.menuItemId),
-      },
-      data: menuItemData,
-    })
-    res.send(JSON.stringify(newMenuItem))
-  } catch (e) {
-    console.log(e)
-    res.status(400).send(e)
-  }
+  const formattedMenuItem = formatMenuItem(updatedMenuItem)
+  res.json(formattedMenuItem)
 }

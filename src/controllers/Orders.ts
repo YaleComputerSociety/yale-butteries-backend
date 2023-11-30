@@ -1,229 +1,152 @@
-import { Request, Response } from 'express'
+import type { Request, Response } from 'express'
 
-import { Order, OrderItemStatus } from '@prisma/client'
-import { OrderItemDto } from '../utils/dtos'
-import prisma from '../prismaClient'
-import {
-  getCollegeFromId,
-  getCollegeFromName,
-  getOrderFromId,
-  getUserFromId,
-  isOrderItemStatus,
-} from '../utils/prismaUtils'
-import { formatOrderItems, formatOrdersDto } from '../utils/dtoConverters'
+import prisma from '@src/config/prismaClient'
+import type { OrderStatus } from '@prisma/client'
+import { OrderItemStatus } from '@prisma/client'
+import { formatOrder, formatOrderItem, formatOrders } from '@utils/dtoConverters'
+import { getCollegeFromName, getOrderFromId, getOrderItemFromId, getUserFromId } from '@utils/prismaUtils'
+import HTTPError from '@src/utils/httpError'
+import { MILLISECONDS_UNTIL_ORDER_IS_EXPIRED } from '@src/utils/constants'
+import type { CreateOrderBody, UpdateOrderBody, UpdateOrderItemBody } from '@src/utils/bodyTypes'
 
-export async function getOrder(req: Request, res: Response): Promise<void> {
-  try {
-    const order = await getOrderFromId(parseInt(req.params.orderId))
-    if (!order) {
-      res.status(400).send('Order not found')
-      return
-    }
-
-    const college = await getCollegeFromId(order.collegeId)
-    const user = await getUserFromId(order.userId)
-    const orderItems = await formatOrderItems(order)
-
-    const ret = {
-      id: order.id,
-      college: college.name,
-      inProgress: order.status,
-      price: order.price,
-      userId: user.id,
-      transactionItems: orderItems,
-    }
-
-    res.send(JSON.stringify(ret))
-  } catch (e) {
-    console.log(e)
-    res.status(500).send(e)
-  }
+export async function getOrder (req: Request, res: Response): Promise<void> {
+  const order = await getOrderFromId(parseInt(req.params.orderId))
+  const formattedOrder = await formatOrder(order)
+  res.json(formattedOrder)
 }
 
-// returns all of the orders along with their items
-// used for the staff payments screen
-// will probably not be able to do this once there are enough orders...
-export async function getAllOrdersFromCollege(req: Request, res: Response): Promise<void> {
-  try {
-    const college = await getCollegeFromName(req.params.collegeName)
+export async function getAllOrdersFromCollege (req: Request, res: Response): Promise<void> {
+  const college = await getCollegeFromName(req.params.collegeName)
 
-    const validOrders = await prisma.order.findMany({
-      where: {
-        collegeId: college.id,
-      },
-      include: {
-        orderItems: true,
-      },
-      orderBy: {
-        id: 'asc',
-      },
-    })
-
-    const frontValidOrders = await formatOrdersDto(validOrders, college.name)
-
-    const ret = {
-      transactionHistories: frontValidOrders,
+  const orders = await prisma.order.findMany({
+    where: {
+      collegeId: college.id
+    },
+    include: {
+      orderItems: true
     }
+  })
 
-    res.send(JSON.stringify(ret))
-  } catch (e) {
-    console.log(e)
-    res.status(400).send(e)
-  }
+  const formattedOrders = await formatOrders(orders, college.name)
+  res.json({ transactionHistories: formattedOrders })
 }
 
-// returns all orders of a specific college within the last 6 hours
-export async function getRecentOrdersFromCollege(req: Request, res: Response): Promise<void> {
-  try {
-    const college = await getCollegeFromName(req.params.collegeName)
-    const date = new Date(Date.now() - 36e5 * 6) // select only transactions from after 6 hours before this moment
+export async function getRecentOrdersFromCollege (req: Request, res: Response): Promise<void> {
+  const college = await getCollegeFromName(req.params.collegeName)
+  const orderExpirationTime = new Date(Date.now() - MILLISECONDS_UNTIL_ORDER_IS_EXPIRED)
 
-    const validOrders = await prisma.order.findMany({
-      where: {
-        collegeId: college.id,
-        createdAt: {
-          gte: date,
-        },
-      },
-      orderBy: {
-        id: 'asc',
-      },
-      include: {
-        orderItems: true,
-      },
-    })
-
-    const frontValidOrders = await formatOrdersDto(validOrders, college.name)
-
-    const ret = {
-      transactionHistories: frontValidOrders,
+  const orders = await prisma.order.findMany({
+    where: {
+      collegeId: college.id,
+      createdAt: {
+        gte: orderExpirationTime
+      }
+    },
+    include: {
+      orderItems: true
     }
+  })
 
-    res.send(JSON.stringify(ret))
-  } catch (e) {
-    console.log(e)
-    res.status(400).send(e)
-  }
+  const formattedOrders = await formatOrders(orders, college.name)
+  res.json({ transactionHistories: formattedOrders })
 }
 
-export async function createOrder(req: Request, res: Response): Promise<void> {
+export async function createOrder (req: Request, res: Response): Promise<void> {
   interface NewOrderItem {
     price: number
     status: OrderItemStatus
     menuItemId: number
+    userId: string
   }
-  try {
-    // const in_progress = req.body.inProgress
-    const total_price = parseInt(req.body.price)
-    const college = await getCollegeFromName(req.body.college)
-    if (!college) throw "Sorry, that college doesn't work"
-    const college_id = college.id
 
-    const inputOrderItems: OrderItemDto[] = req.body.transactionItems
-    const orderItems = []
-    for (const item of inputOrderItems) {
-      if (item) {
-        const newItem: NewOrderItem = {
-          price: item.itemCost,
-          status: OrderItemStatus.QUEUED,
-          menuItemId: item.menuItemId,
+  const requestBody = req.body as CreateOrderBody
+
+  const college = await getCollegeFromName(requestBody.college)
+
+  // test is user exists
+  // TODO test if user is the actual user sending the request
+  await getUserFromId(requestBody.userId)
+
+  // Get sanitized orderItems list
+  const orderItems: NewOrderItem[] = []
+  for (const item of requestBody.transactionItems) {
+    orderItems.push({
+      price: item.itemCost,
+      status: OrderItemStatus.QUEUED,
+      menuItemId: item.menuItemId,
+      userId: requestBody.userId
+    })
+  }
+
+  const order = await prisma.order.create({
+    data: {
+      status: 'QUEUED',
+      price: requestBody.price,
+      college: {
+        connect: {
+          id: college.id
         }
-        orderItems.push(newItem)
+      },
+      user: {
+        connect: {
+          id: requestBody.userId
+        }
+      },
+      orderItems: {
+        createMany: {
+          data: orderItems
+        }
       }
+    },
+    include: {
+      orderItems: true
     }
+  })
 
-    // store the transaction in the database
-    const newOrder = await prisma.order.create({
-      data: {
-        status: 'QUEUED',
-        price: total_price,
-        college: {
-          connect: {
-            id: college_id,
-          },
-        },
-        user: {
-          connect: {
-            id: req.body.userId,
-          },
-        },
-        orderItems: {
-          createMany: {
-            data: orderItems,
-          },
-        },
-      },
-    })
-
-    const sendOrder = {
-      id: newOrder.id,
-      college: req.body.college,
-      inProgress: req.body.inProgress,
-      price: req.body.price,
-      userId: req.body.userId,
-      transactionItems: orderItems,
-    }
-    res.send(JSON.stringify(sendOrder))
-  } catch (e) {
-    console.log(e)
-    res.status(400).send(e)
-  }
+  const formattedOrder = await formatOrder(order)
+  res.json(formattedOrder)
 }
 
-export async function updateOrderInner(req: any): Promise<Order> {
-  try {
-    const order = await prisma.order.update({
-      where: {
-        id: req.body.id,
-      },
-      data: {
-        status: req.body.status || undefined,
-        price: req.body.total_price || undefined,
-        stripeFee: req.body.stripe_fee || undefined,
-      },
-    })
-    return order
-  } catch (e) {
-    console.log(e)
-  }
-}
+export async function updateOrderItem (req: Request, res: Response): Promise<void> {
+  const requestBody = req.body as UpdateOrderItemBody
 
-export async function updateOrder(req: Request, res: Response): Promise<void> {
-  try {
-    const order = await prisma.order.update({
-      where: {
-        id: req.body.id,
-      },
-      data: {
-        status: req.body.in_progress || undefined,
-        price: req.body.total_price || undefined,
-        stripeFee: req.body.stripe_fee || undefined,
-      },
-    })
-    res.send(JSON.stringify(order))
-  } catch (e) {
-    res.status(400).send(e)
-  }
-}
+  // check that order item exists
+  await getOrderItemFromId(parseInt(req.params.orderItemId))
 
-export async function updateOrderItem(req: Request, res: Response): Promise<void> {
-  try {
-    if (!isOrderItemStatus(req.body.orderStatus)) {
-      res.status(400).send('malformed status')
-      return
+  const orderItem = await prisma.orderItem.update({
+    where: {
+      id: parseInt(req.params.orderItemId)
+    },
+    data: {
+      status: requestBody.orderStatus as OrderItemStatus
     }
+  })
 
-    const orderItem = await prisma.orderItem.update({
-      where: {
-        id: parseInt(req.params.orderItemId),
-      },
-      data: {
-        status: req.body.orderStatus,
-      },
-    })
-    res.send(JSON.stringify(orderItem))
-  } catch (e) {
-    console.log(e)
-    res.status(400).send(e)
-  }
+  if (orderItem === null) throw new HTTPError(`No order item found with ID ${req.params.orderItemId}`, 404)
+
+  const formattedOrderItem = await formatOrderItem(orderItem)
+  res.json(formattedOrderItem)
+}
+
+// This function is currently unused and probably doesn't work
+export async function updateOrder (req: Request, res: Response): Promise<void> {
+  const requestBody = req.body as UpdateOrderBody
+
+  // check that the order exists
+  await getOrderFromId(parseInt(req.params.orderId))
+
+  const order = await prisma.order.update({
+    where: {
+      id: parseInt(req.params.orderId)
+    },
+    data: {
+      status: requestBody.in_progress as OrderStatus ?? undefined,
+      price: requestBody.total_price ?? undefined
+    },
+    include: {
+      orderItems: true
+    }
+  })
+  const formattedOrder = await formatOrder(order)
+  res.json(formattedOrder)
 }

@@ -1,61 +1,112 @@
 // This is where the fronttoback and backtofront functions will go
-import { CollegeDto, OrderDto, OrderItemDto, UserDto } from './dtos'
-import { College, Order, OrderItem, User } from '@prisma/client'
-import { getUserFromId, getOrderFromId, getCollegeNameFromId, getMenuItemFromId } from './prismaUtils'
+import type { CollegeDto, MenuItemDto, OrderDto, OrderItemDto, UserDto } from './dtos'
+import type { College, MenuItem, Order, OrderItem, User } from '@prisma/client'
+import { getUserFromId, getMenuItemFromId, getCollegeFromId } from './prismaUtils'
 
-export async function formatUserDto(user: User): Promise<UserDto> {
-  const collegeName = await getCollegeNameFromId(user.collegeId)
+export async function formatUser (user: User): Promise<UserDto> {
+  const college = await getCollegeFromId(user.collegeId)
 
   return {
-    email: user.email,
+    email: user.email ?? 'noemail',
     netid: user.netId,
     name: user.name,
     permissions: user.role,
-    college: collegeName,
-    id: user.id,
+    college: college.name,
+    id: user.id
   }
-}
-export const formatOrdersDto = async (orders: Order[], college: string): Promise<OrderDto[]> => {
-  const res: OrderDto[] = []
-  for (const item of orders) {
-    const user: User = await getUserFromId(item.userId)
-    const th: Order & { orderItems: OrderItem[] } = await getOrderFromId(item.id)
-    const tis: OrderItemDto[] = await formatOrderItems(th)
-    if (item) {
-      const newItem: OrderDto = {
-        id: item.id,
-        college: college,
-        inProgress: item.status,
-        price: item.price,
-        userId: user.id,
-        paymentIntentId: item.paymentIntentId,
-        creationTime: item.createdAt,
-        transactionItems: tis,
-      }
-      res.push(newItem)
-    }
-  }
-  return res
 }
 
-export const formatOrderItems = async (order: Order & { orderItems: OrderItem[] }): Promise<OrderItemDto[]> => {
-  const orderItems: OrderItemDto[] = []
-  for (const item of order.orderItems) {
-    const menuItem = await getMenuItemFromId(item.menuItemId)
-    const user = await getUserFromId(order.userId)
-    if (item) {
-      const newItem: OrderItemDto = {
-        itemCost: item.price,
-        orderStatus: item.status,
-        menuItemId: item.menuItemId,
-        name: menuItem.name,
-        id: item.id,
-        user: user.name,
-      }
-      orderItems.push(newItem)
-    }
+export const formatUsers = async (users: Array<User & { college: College }>): Promise<UserDto[]> => {
+  const formattedUsers: UserDto[] = []
+  for (const user of users) {
+    formattedUsers.push({
+      email: user.email ?? 'noemail',
+      netid: user.netId,
+      name: user.name,
+      permissions: user.role,
+      college: user.college.name,
+      id: user.id
+    })
   }
-  return orderItems
+  return formattedUsers
+}
+
+// TODO: make this function more efficient by reducing database calls
+// (user, th, tis are fetched for every order, should be fetched at beginning and put in a map)
+export const formatOrders = async (orders: Array<Order & { orderItems: OrderItem[] }>, college: string): Promise<OrderDto[]> => {
+  const formattedOrders: OrderDto[] = []
+
+  for (const order of orders) {
+    const user: User = await getUserFromId(order.userId)
+    const orderItems: OrderItemDto[] = await formatOrderItems(order.orderItems)
+
+    formattedOrders.push({
+      id: order.id,
+      college,
+      inProgress: order.status,
+      price: order.price,
+      userId: user.id,
+      paymentIntentId: order.paymentIntentId ?? '',
+      creationTime: order.createdAt,
+      transactionItems: orderItems
+    })
+  }
+
+  return formattedOrders
+}
+
+export const formatOrder = async (order: Order & { orderItems: OrderItem[] }): Promise<OrderDto> => {
+  const college = await getCollegeFromId(order.collegeId)
+  const user = await getUserFromId(order.userId)
+  const orderItems = await formatOrderItems(order.orderItems)
+
+  const formattedOrder: OrderDto = {
+    id: order.id,
+    college: college.name,
+    inProgress: order.status,
+    price: order.price,
+    userId: user.id,
+    transactionItems: orderItems,
+    creationTime: order.createdAt,
+    paymentIntentId: ''
+  }
+
+  return formattedOrder
+}
+
+export const formatOrderItems = async (orderItems: OrderItem[]): Promise<OrderItemDto[]> => {
+  const formattedOrderItems: OrderItemDto[] = []
+
+  // user is the same for every order item
+  const user = await getUserFromId(orderItems[0].userId)
+
+  for (const item of orderItems) {
+    const menuItem = await getMenuItemFromId(item.menuItemId)
+
+    formattedOrderItems.push({
+      itemCost: item.price,
+      orderStatus: item.status,
+      menuItemId: item.menuItemId,
+      name: menuItem.name,
+      id: item.id,
+      user: user.name
+    })
+  }
+
+  return formattedOrderItems
+}
+
+export const formatOrderItem = async (orderItem: OrderItem): Promise<OrderItemDto> => {
+  const menuItem = await getMenuItemFromId(orderItem.menuItemId)
+
+  return {
+    itemCost: orderItem.price,
+    orderStatus: orderItem.status,
+    menuItemId: orderItem.menuItemId,
+    name: menuItem.name,
+    id: orderItem.id,
+    user: orderItem.userId
+  }
 }
 
 export const formatCollege = (college: College): CollegeDto => {
@@ -66,8 +117,21 @@ export const formatCollege = (college: College): CollegeDto => {
     daysOpen: college.daysOpen,
     openTime: college.openTime,
     closeTime: college.closeTime,
-    isOpen: college.isOpen,
+    isOpen: college.isOpen
   }
 
   return res
+}
+
+export const formatMenuItem = (menuItem: MenuItem & { college: College }): MenuItemDto => {
+  const formattedMenuItem = {
+    id: menuItem.id,
+    item: menuItem.name,
+    price: menuItem.price,
+    college: menuItem.college.name,
+    isActive: menuItem.isActive,
+    description: menuItem.description,
+    foodType: menuItem.type
+  }
+  return formattedMenuItem
 }
