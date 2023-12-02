@@ -201,7 +201,7 @@ const main = async (): Promise<void> => {
   })
   await prisma.user.upsert({
     where: {
-      id: '3'
+      netId: 'guest'
     },
     update: {},
     create: {
