@@ -1,4 +1,4 @@
-import HTTPError from '@utils/httpError'
+import HTTPError from '@src/utils/httpError'
 import type { Request, Response, NextFunction } from 'express'
 
 type ValidatorFn = (paramValue: string) => boolean

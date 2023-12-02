@@ -4,7 +4,7 @@ import { UserRole } from '@prisma/client'
 import prisma from '@src/config/prismaClient'
 import { findUserByNetId, getCollegeFromName, getUserFromId } from '@utils/prismaUtils'
 import { formatOrderItem, formatUser, formatUsers } from '@utils/dtoConverters'
-import HTTPError from '@utils/httpError'
+import HTTPError from '@src/utils/httpError'
 import { MILLISECONDS_UNTIL_ORDER_IS_EXPIRED } from '@utils/constants'
 import type { CreateUserBody, UpdateUserBody, VerifyStaffLoginBody } from '@utils/bodyTypes'
 

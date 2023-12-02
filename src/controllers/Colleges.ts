@@ -2,7 +2,7 @@ import type { Request, Response } from 'express'
 
 import prisma from '@src/config/prismaClient'
 import { formatCollege } from '@utils/dtoConverters'
-import HTTPError from '@utils/httpError'
+import HTTPError from '@src/utils/httpError'
 import { getCollegeFromId } from '@utils/prismaUtils'
 import type { UpdateCollegeBody } from '@utils/bodyTypes'
 

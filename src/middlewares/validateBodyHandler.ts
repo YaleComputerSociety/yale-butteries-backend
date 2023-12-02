@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import { plainToInstance } from 'class-transformer'
 import { validate } from 'class-validator'
-import HTTPError from '@utils/httpError'
+import HTTPError from '@src/utils/httpError'
 
 export function validateBody<T extends object> (bodyType: new () => T) {
   return async (req: Request, res: Response, next: NextFunction) => {
