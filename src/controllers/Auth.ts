@@ -1,5 +1,4 @@
-import type express from 'express'
-import type { NextFunction, Request, Response } from 'express'
+import type { NextFunction, Request, Response, Express } from 'express'
 import passport from 'passport'
 import { Strategy } from 'passport-cas2'
 
@@ -24,7 +23,7 @@ passport.deserializeUser<AuthUser>((netId, done) => {
   done(null, { netId })
 })
 
-export default (app: express.Express): void => {
+export default (app: Express): void => {
   app.use(passport.initialize())
   app.use(passport.session())
 
