@@ -7,6 +7,7 @@ import { OrderStatus } from '@prisma/client'
 import type { SubscribePushNotificationsBody } from '@utils/bodyTypes'
 import { getOrderFromId, updateOrderInternal } from '@utils/prismaUtils'
 import { MILLISECONDS_UNTIL_ORDER_IS_EXPIRED } from '@src/utils/constants'
+import prisma from '@src/config/prismaClient'
 // import { stripe } from '@src/config/stripe'
 
 // { accessToken: process.env.EXPO_ACCESS_TOKEN }
@@ -14,7 +15,7 @@ const expo = new Expo()
 
 // TODO: merge this whole function into createOrder
 // start a checker to go off every 5 seconds, where if all order items are handled, send a push notification and pay for the order
-export async function createPushNotifications (req: Request, res: Response): Promise<void> {
+export async function createPushNotifications(req: Request, res: Response): Promise<void> {
   const requestBody = req.body as SubscribePushNotificationsBody
 
   const interval = setInterval(() => {
@@ -28,7 +29,7 @@ export async function createPushNotifications (req: Request, res: Response): Pro
 }
 
 // TODO: put the update order part of this function into the updateOrderItem function instead of here, and then only check the order status in this function
-async function checkAndUpdateOrder (transactionId: number, interval: NodeJS.Timer, token?: string): Promise<void> {
+async function checkAndUpdateOrder(transactionId: number, interval: NodeJS.Timer, token?: string): Promise<void> {
   const order = await getOrderFromId(transactionId)
   const items = order.orderItems
 
@@ -47,13 +48,13 @@ async function checkAndUpdateOrder (transactionId: number, interval: NodeJS.Time
       id: transactionId,
       readyAt: new Date(),
       status: 'READY',
-      price
+      price,
     })
 
     console.log('check')
     if (token != null) {
       console.log('hye')
-      sendNotification(token, true)
+      sendNotification(token, true, order)
         .then((s) => {
           console.log('sent the notification: ', s)
         })
@@ -71,7 +72,7 @@ async function checkAndUpdateOrder (transactionId: number, interval: NodeJS.Time
     clearInterval(interval)
 
     if (orderStatus === OrderStatus.CANCELLED && token != null) {
-      sendNotification(token, false).catch((e) => {
+      sendNotification(token, false, order).catch((e) => {
         throw e
       })
     }
@@ -80,7 +81,7 @@ async function checkAndUpdateOrder (transactionId: number, interval: NodeJS.Time
       id: transactionId,
       readyAt: new Date(),
       status: 'CANCELLED',
-      price: 0
+      price: 0,
     })
 
     // stripe.paymentIntents.cancel(await getPaymentIntentIdFromId(requestBody.transactionId))
@@ -98,6 +99,7 @@ async function checkAndUpdateOrder (transactionId: number, interval: NodeJS.Time
 
 // checks if all orderItems collectively have been handled, and if so return the order's status
 // TODO: this should happen during updateOrderItem, not here
+
 const checkItems = (items: OrderItem[], order: Order): OrderStatus => {
   const orderLifetime = Math.abs(new Date().getTime() - order.createdAt.getTime())
   if (items.every((i) => i.status === 'CANCELLED')) {
@@ -114,15 +116,27 @@ const checkItems = (items: OrderItem[], order: Order): OrderStatus => {
   }
 }
 
-const sendNotification = async (expoPushToken: string, isSuccessful: boolean): Promise<string> => {
-  console.log('trying to send')
+const sendNotification = async (expoPushToken: string, isSuccessful: boolean, order: Order): Promise<string> => {
+  console.log('sending...')
+
+  if (isSuccessful) {
+    await prisma.order.update({
+      where: {
+        id: order.id,
+      },
+      data: {
+        paidAt: new Date(),
+      },
+    })
+  }
+
   const message = {
     to: expoPushToken,
     sound: 'default' as const,
     body: isSuccessful
       ? `Your order is ready for pickup!  ${String.fromCodePoint(0x1f601)}`
       : `Your order was cancelled. ${String.fromCodePoint(0x1f614)}`,
-    data: { withSome: 'data' }
+    data: { withSome: 'data' },
   }
 
   console.log('token: ', expoPushToken)
@@ -157,5 +171,5 @@ const sendNotification = async (expoPushToken: string, isSuccessful: boolean): P
   // }
 
   // return response
-  return 'hey'
+  return 'Sent'
 }
