@@ -6,8 +6,8 @@ import { OrderItemStatus } from '@prisma/client'
 import { formatOrder, formatOrderItem, formatOrders } from '@utils/dtoConverters'
 import { getCollegeFromName, getOrderFromId, getOrderItemFromId, getUserFromId } from '@utils/prismaUtils'
 import HTTPError from '@src/utils/httpError'
-import { MILLISECONDS_UNTIL_ORDER_IS_EXPIRED } from '@src/utils/constants'
-import type { CreateOrderBody, UpdateOrderBody, UpdateOrderItemBody } from '@src/utils/bodyTypes'
+import { MILLISECONDS_UNTIL_ORDER_IS_EXPIRED } from '@utils/constants'
+import type { CreateOrderBody, UpdateOrderBody, UpdateOrderItemBody } from '@utils/bodyTypes'
 
 export async function getOrder (req: Request, res: Response): Promise<void> {
   const order = await getOrderFromId(parseInt(req.params.orderId))
