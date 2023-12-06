@@ -21,6 +21,10 @@ export class UpdateCollegeBody {
     isOpen: boolean
 
   @IsOptional()
+  @IsBoolean()
+    isAcceptingOrders: boolean
+
+  @IsOptional()
   @IsString()
     openTime: string
 

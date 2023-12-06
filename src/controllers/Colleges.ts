@@ -31,6 +31,7 @@ export async function updateCollege (req: Request, res: Response): Promise<void>
       id: parseInt(req.params.collegeId)
     },
     data: {
+      isAcceptingOrders: requestBody.isAcceptingOrders,
       daysOpen: requestBody.daysOpen,
       isOpen: requestBody.isOpen,
       openTime: requestBody.openTime,
