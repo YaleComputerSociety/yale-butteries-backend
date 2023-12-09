@@ -113,7 +113,8 @@ export const formatCollege = (college: College): CollegeDto => {
   const res: CollegeDto = {
     id: college.id,
     college: college.name,
-    buttery_activated: college.isButteryIntegrated,
+    isButteryIntegrated: college.isButteryIntegrated,
+    isAcceptingOrders: college.isAcceptingOrders,
     daysOpen: college.daysOpen,
     openTime: college.openTime,
     closeTime: college.closeTime,

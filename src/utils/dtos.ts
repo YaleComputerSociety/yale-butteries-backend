@@ -45,7 +45,8 @@ export interface MenuItemDto {
 export interface CollegeDto {
   id: number
   college: string
-  buttery_activated: boolean
+  isButteryIntegrated: boolean
+  isAcceptingOrders: boolean
   isOpen: boolean
   daysOpen: string[]
   openTime: string
