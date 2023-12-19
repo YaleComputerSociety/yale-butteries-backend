@@ -128,7 +128,7 @@ export async function updateOrderItem (req: Request, res: Response): Promise<voi
   res.json(formattedOrderItem)
 }
 
-// This function is currently unused and probably doesn't work
+// This function is currently unused
 export async function updateOrder (req: Request, res: Response): Promise<void> {
   const requestBody = req.body as UpdateOrderBody
 

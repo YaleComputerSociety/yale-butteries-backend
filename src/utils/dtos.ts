@@ -1,51 +1,54 @@
 // DTO stands for Data Transfer Object
 // These are the frontend object types, which we need to know when sending data and sometimes when receiving data
 
+import type { MenuItemType, OrderItemStatus, OrderStatus, UserRole } from '@prisma/client'
+
 export interface UserDto {
   id: string
-  email: string
-  netid: string
+  netId: string // netId
   name: string
-  college: string
-  permissions: string
+  collegeId: number // collegeId: number
+  role: UserRole // role, enum
+  email?: string // optional
   currentOrder?: unknown
 }
 
 export interface OrderItemDto {
   id: number
-  itemCost: number
-  orderStatus: string
+  price: number // price
+  status: OrderItemStatus // status, enum
   menuItemId: number
   name: string
-  user: string
+  userId: string // userId
 }
 
 export interface OrderDto {
   id: number
-  college: string
-  inProgress: string
+  collegeId: number // should be collegeId: number
+  // inProgress: string // remove
+  orderStatus: OrderStatus // create
   price: number
   userId: string
   paymentIntentId: string
-  transactionItems: OrderItemDto[]
-  creationTime: Date
+  orderItems: OrderItemDto[] // orderItems
+  createdAt: Date // createdAt
 }
 
 export interface MenuItemDto {
-  id?: number
-  item: string
-  college: string
+  id: number // mandatory
+  name: string // name
+  collegeId: number // should be collegeId: number
   price: number
-  description?: string
-  limitedTime?: boolean
+  description: string // mandatory
+  // limitedTime?: boolean // remove
   isActive: boolean
-  foodType: 'FOOD' | 'DRINK' | 'DESSERT'
+  foodType: MenuItemType // type, enum
 }
 
 export interface CollegeDto {
   id: number
-  college: string
-  buttery_activated: boolean
+  name: string // name
+  isButteryIntegrated: boolean // isButteryIntegrated
   isOpen: boolean
   daysOpen: string[]
   openTime: string
