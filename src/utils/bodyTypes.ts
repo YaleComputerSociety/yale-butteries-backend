@@ -31,10 +31,10 @@ export class UpdateCollegeBody {
 
 export class CreateMenuItemBody {
   @IsString()
-    item: string
+    name: string
 
-  @IsString()
-    college: string
+  @IsInt()
+    collegeId: string
 
   @IsInt()
   @Min(50)
@@ -57,7 +57,7 @@ export class CreateMenuItemBody {
 export class UpdateMenuItemBody {
   @IsOptional()
   @IsString()
-    item: string
+    name: string
 
   @IsOptional()
   @IsInt()
@@ -85,21 +85,21 @@ export class CreateOrderBody {
   @IsInt()
     price: number
 
-  @IsString()
-    college: string
+  @IsInt()
+    collegeId: number
 
   @IsArray()
   @ArrayNotEmpty()
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemBody)
-    transactionItems: CreateOrderItemBody[]
+    orderItems: CreateOrderItemBody[]
 }
 
 export class CreateOrderItemBody {
   @IsInt()
   @Min(50)
   @Max(2000)
-    itemCost: number
+    price: number
 
   @IsInt()
     menuItemId: number
@@ -107,17 +107,17 @@ export class CreateOrderItemBody {
 
 export class UpdateOrderItemBody {
   @IsIn(orderItemStatusValues)
-    orderStatus: string
+    status: string
 }
 
 export class UpdateOrderBody {
   @IsOptional()
   @IsIn(orderStatusValues)
-    in_progress: string
+    status: string
 
   @IsOptional()
   @IsInt()
-    total_price: number
+    price: number
 
   @IsOptional()
   @IsInt()
@@ -126,10 +126,10 @@ export class UpdateOrderBody {
 
 export class CreateUserBody {
   @IsString()
-    netid: string
+    netId: string
 
   @IsString()
-    college: string
+    collegeId: number
 
   @IsOptional()
   @IsString()
@@ -138,10 +138,6 @@ export class CreateUserBody {
   @IsOptional()
   @IsString()
     email: string
-
-  @IsOptional()
-  @IsString()
-    token: string
 }
 
 export class UpdateUserBody {

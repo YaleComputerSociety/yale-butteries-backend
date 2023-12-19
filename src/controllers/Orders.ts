@@ -4,7 +4,7 @@ import prisma from '@src/config/prismaClient'
 import type { OrderStatus } from '@prisma/client'
 import { OrderItemStatus } from '@prisma/client'
 import { formatOrder, formatOrderItem, formatOrders } from '@utils/dtoConverters'
-import { getCollegeFromName, getOrderFromId, getOrderItemFromId, getUserFromId } from '@utils/prismaUtils'
+import { getCollegeFromId, getCollegeFromName, getOrderFromId, getOrderItemFromId, getUserFromId } from '@utils/prismaUtils'
 import HTTPError from '@src/utils/httpError'
 import { MILLISECONDS_UNTIL_ORDER_IS_EXPIRED } from '@utils/constants'
 import type { CreateOrderBody, UpdateOrderBody, UpdateOrderItemBody } from '@utils/bodyTypes'
@@ -27,8 +27,8 @@ export async function getAllOrdersFromCollege (req: Request, res: Response): Pro
     }
   })
 
-  const formattedOrders = await formatOrders(orders, college.name)
-  res.json({ transactionHistories: formattedOrders })
+  const formattedOrders = await formatOrders(orders, college)
+  res.json(formattedOrders)
 }
 
 export async function getRecentOrdersFromCollege (req: Request, res: Response): Promise<void> {
@@ -47,8 +47,8 @@ export async function getRecentOrdersFromCollege (req: Request, res: Response): 
     }
   })
 
-  const formattedOrders = await formatOrders(orders, college.name)
-  res.json({ transactionHistories: formattedOrders })
+  const formattedOrders = await formatOrders(orders, college)
+  res.json(formattedOrders)
 }
 
 export async function createOrder (req: Request, res: Response): Promise<void> {
@@ -61,7 +61,7 @@ export async function createOrder (req: Request, res: Response): Promise<void> {
 
   const requestBody = req.body as CreateOrderBody
 
-  const college = await getCollegeFromName(requestBody.college)
+  const college = await getCollegeFromId(requestBody.collegeId)
 
   // test is user exists
   // TODO test if user is the actual user sending the request
@@ -69,9 +69,9 @@ export async function createOrder (req: Request, res: Response): Promise<void> {
 
   // Get sanitized orderItems list
   const orderItems: NewOrderItem[] = []
-  for (const item of requestBody.transactionItems) {
+  for (const item of requestBody.orderItems) {
     orderItems.push({
-      price: item.itemCost,
+      price: item.price,
       status: OrderItemStatus.QUEUED,
       menuItemId: item.menuItemId,
       userId: requestBody.userId
@@ -118,7 +118,7 @@ export async function updateOrderItem (req: Request, res: Response): Promise<voi
       id: parseInt(req.params.orderItemId)
     },
     data: {
-      status: requestBody.orderStatus as OrderItemStatus
+      status: requestBody.status as OrderItemStatus
     }
   })
 
@@ -140,8 +140,8 @@ export async function updateOrder (req: Request, res: Response): Promise<void> {
       id: parseInt(req.params.orderId)
     },
     data: {
-      status: requestBody.in_progress as OrderStatus ?? undefined,
-      price: requestBody.total_price ?? undefined
+      status: requestBody.status as OrderStatus ?? undefined,
+      price: requestBody.price ?? undefined
     },
     include: {
       orderItems: true

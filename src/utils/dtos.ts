@@ -26,7 +26,7 @@ export interface OrderDto {
   id: number
   collegeId: number // should be collegeId: number
   // inProgress: string // remove
-  orderStatus: OrderStatus // create
+  status: OrderStatus // create
   price: number
   userId: string
   paymentIntentId: string
