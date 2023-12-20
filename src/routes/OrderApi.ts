@@ -9,13 +9,13 @@ import { CreateOrderBody, UpdateOrderItemBody, UpdateOrderBody } from '@src/util
 
 const router = express.Router()
 
-const validateCollegeName = createParamValidator('collegeName', isNonEmptyString, 'College Name must be non-empty')
+const validateCollegeId = createParamValidator('collegeId', isNonEmptyString, 'College ID must be an integer')
 const validateOrderId = createParamValidator('orderId', isInteger, 'Order ID must be an integer')
 const validateOrderItemId = createParamValidator('orderItemId', isInteger, 'Order item ID must be an integer')
 
 router.get('/:orderId', validateOrderId, asyncHandler(getOrder))
-router.get('/college/:collegeName', validateCollegeName, asyncHandler(getAllOrdersFromCollege))
-router.get('/college/recent/:collegeName', validateCollegeName, asyncHandler(getRecentOrdersFromCollege))
+router.get('/college/:collegeId', validateCollegeId, asyncHandler(getAllOrdersFromCollege))
+router.get('/college/recent/:collegeId', validateCollegeId, asyncHandler(getRecentOrdersFromCollege))
 router.post('/', validateBody(CreateOrderBody), asyncHandler(createOrder))
 router.put('/item/:orderItemId', validateBody(UpdateOrderItemBody), validateOrderItemId, asyncHandler(updateOrderItem))
 

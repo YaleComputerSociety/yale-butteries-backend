@@ -4,7 +4,7 @@ import prisma from '@src/config/prismaClient'
 import type { OrderStatus } from '@prisma/client'
 import { OrderItemStatus } from '@prisma/client'
 import { formatOrder, formatOrderItem, formatOrders } from '@utils/dtoConverters'
-import { getCollegeFromId, getCollegeFromName, getOrderFromId, getOrderItemFromId, getUserFromId } from '@utils/prismaUtils'
+import { getCollegeFromId, getOrderFromId, getOrderItemFromId, getUserFromId } from '@utils/prismaUtils'
 import HTTPError from '@src/utils/httpError'
 import { MILLISECONDS_UNTIL_ORDER_IS_EXPIRED } from '@utils/constants'
 import type { CreateOrderBody, UpdateOrderBody, UpdateOrderItemBody } from '@utils/bodyTypes'
@@ -16,11 +16,12 @@ export async function getOrder (req: Request, res: Response): Promise<void> {
 }
 
 export async function getAllOrdersFromCollege (req: Request, res: Response): Promise<void> {
-  const college = await getCollegeFromName(req.params.collegeName)
+  // Check the college exists
+  const college = await getCollegeFromId(parseInt(req.params.collegeId))
 
   const orders = await prisma.order.findMany({
     where: {
-      collegeId: college.id
+      collegeId: parseInt(req.params.collegeId)
     },
     include: {
       orderItems: true
@@ -32,12 +33,14 @@ export async function getAllOrdersFromCollege (req: Request, res: Response): Pro
 }
 
 export async function getRecentOrdersFromCollege (req: Request, res: Response): Promise<void> {
-  const college = await getCollegeFromName(req.params.collegeName)
+  // Check the college exists
+  const college = await getCollegeFromId(parseInt(req.params.collegeId))
+
   const orderExpirationTime = new Date(Date.now() - MILLISECONDS_UNTIL_ORDER_IS_EXPIRED)
 
   const orders = await prisma.order.findMany({
     where: {
-      collegeId: college.id,
+      collegeId: parseInt(req.params.collegeId),
       createdAt: {
         gte: orderExpirationTime
       }

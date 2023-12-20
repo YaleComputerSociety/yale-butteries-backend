@@ -121,7 +121,7 @@ export class UpdateOrderBody {
 
   @IsOptional()
   @IsInt()
-    stripe_fee: number
+    stripeFee: number
 }
 
 export class CreateUserBody {
@@ -198,5 +198,5 @@ export class SubscribePushNotificationsBody {
     pushToken: string
 
   @IsInt()
-    transactionId: number
+    orderId: number
 }
