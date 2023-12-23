@@ -5,14 +5,13 @@ interface ExtendedError extends Error {
 }
 
 const errorHandler: ErrorRequestHandler = (err: ExtendedError, req: Request, res: Response, next: NextFunction) => {
-  console.error(err)
+  const statusCode = err.status ?? 500
+  console.error(statusCode, err.stack)
 
   if (res.headersSent) {
-    next(err)
     return
   }
 
-  const statusCode = err.status ?? 500
   res.status(statusCode).json({ error: err.message ?? 'Internal server error' })
 }
 

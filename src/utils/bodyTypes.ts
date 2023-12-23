@@ -34,7 +34,7 @@ export class CreateMenuItemBody {
     name: string
 
   @IsInt()
-    collegeId: string
+    collegeId: number
 
   @IsInt()
   @Min(50)
@@ -128,7 +128,7 @@ export class CreateUserBody {
   @IsString()
     netId: string
 
-  @IsString()
+  @IsInt()
     collegeId: number
 
   @IsOptional()
