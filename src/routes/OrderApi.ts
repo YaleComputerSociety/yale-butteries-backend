@@ -3,7 +3,14 @@ import express from 'express'
 
 import asyncHandler from '@src/middlewares/asyncHandler'
 import { createParamValidator, isInteger, isNonEmptyString } from '@src/middlewares/validateParamHandler'
-import { createOrder, getAllOrdersFromCollege, getRecentOrdersFromCollege, getOrder, updateOrder, updateOrderItem } from '@controllers/Orders'
+import {
+  createOrder,
+  getAllOrdersFromCollege,
+  getRecentOrdersFromCollege,
+  getOrder,
+  updateOrder,
+  updateOrderItem,
+} from '@controllers/Orders'
 import { validateBody } from '@src/middlewares/validateBodyHandler'
 import { CreateOrderBody, UpdateOrderItemBody, UpdateOrderBody } from '@src/utils/bodyTypes'
 

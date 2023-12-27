@@ -150,18 +150,3 @@ export async function updateOrder(req: Request, res: Response): Promise<void> {
   const formattedOrder = await formatOrder(order)
   res.json(formattedOrder)
 }
-
-export async function getOrdersFromDay(req: Request, res: Response): Promise<void> {
-  const requestBody = req.body as UpdateOrderBody
-
-  const ordersFromDay = await prisma.order.findMany({
-    where: {
-      paidAt: req.body.date,
-    },
-    include: {
-      orderItems: true,
-    },
-  })
-
-  res.json(ordersFromDay)
-}
