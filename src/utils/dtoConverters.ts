@@ -7,12 +7,12 @@ export async function formatUser (user: User): Promise<UserDto> {
   const college = await getCollegeFromId(user.collegeId)
 
   return {
-    email: user.email ?? 'noemail',
-    netid: user.netId,
+    id: user.id,
+    netId: user.netId,
     name: user.name,
-    permissions: user.role,
-    college: college.name,
-    id: user.id
+    role: user.role,
+    collegeId: college.id,
+    email: user.email ?? undefined
   }
 }
 
@@ -20,20 +20,19 @@ export const formatUsers = async (users: Array<User & { college: College }>): Pr
   const formattedUsers: UserDto[] = []
   for (const user of users) {
     formattedUsers.push({
-      email: user.email ?? 'noemail',
-      netid: user.netId,
+      id: user.id,
+      netId: user.netId,
       name: user.name,
-      permissions: user.role,
-      college: user.college.name,
-      id: user.id
+      role: user.role,
+      collegeId: user.college.id,
+      email: user.email ?? undefined
     })
   }
   return formattedUsers
 }
 
 // TODO: make this function more efficient by reducing database calls
-// (user, th, tis are fetched for every order, should be fetched at beginning and put in a map)
-export const formatOrders = async (orders: Array<Order & { orderItems: OrderItem[] }>, college: string): Promise<OrderDto[]> => {
+export const formatOrders = async (orders: Array<Order & { orderItems: OrderItem[] }>, college: College): Promise<OrderDto[]> => {
   const formattedOrders: OrderDto[] = []
 
   for (const order of orders) {
@@ -42,13 +41,13 @@ export const formatOrders = async (orders: Array<Order & { orderItems: OrderItem
 
     formattedOrders.push({
       id: order.id,
-      college,
-      inProgress: order.status,
+      collegeId: college.id,
+      status: order.status,
       price: order.price,
       userId: user.id,
       paymentIntentId: order.paymentIntentId ?? '',
-      creationTime: order.createdAt,
-      transactionItems: orderItems
+      createdAt: order.createdAt,
+      orderItems
     })
   }
 
@@ -60,18 +59,16 @@ export const formatOrder = async (order: Order & { orderItems: OrderItem[] }): P
   const user = await getUserFromId(order.userId)
   const orderItems = await formatOrderItems(order.orderItems)
 
-  const formattedOrder: OrderDto = {
+  return {
     id: order.id,
-    college: college.name,
-    inProgress: order.status,
+    collegeId: college.id,
+    status: order.status,
     price: order.price,
     userId: user.id,
-    transactionItems: orderItems,
-    creationTime: order.createdAt,
+    orderItems,
+    createdAt: order.createdAt,
     paymentIntentId: ''
   }
-
-  return formattedOrder
 }
 
 export const formatOrderItems = async (orderItems: OrderItem[]): Promise<OrderItemDto[]> => {
@@ -84,12 +81,12 @@ export const formatOrderItems = async (orderItems: OrderItem[]): Promise<OrderIt
     const menuItem = await getMenuItemFromId(item.menuItemId)
 
     formattedOrderItems.push({
-      itemCost: item.price,
-      orderStatus: item.status,
+      price: item.price,
+      status: item.status,
       menuItemId: item.menuItemId,
       name: menuItem.name,
       id: item.id,
-      user: user.name
+      userId: user.name
     })
   }
 
@@ -100,39 +97,35 @@ export const formatOrderItem = async (orderItem: OrderItem): Promise<OrderItemDt
   const menuItem = await getMenuItemFromId(orderItem.menuItemId)
 
   return {
-    itemCost: orderItem.price,
-    orderStatus: orderItem.status,
+    id: orderItem.id,
+    price: orderItem.price,
+    status: orderItem.status,
     menuItemId: orderItem.menuItemId,
     name: menuItem.name,
-    id: orderItem.id,
-    user: orderItem.userId
+    userId: orderItem.userId
   }
 }
 
 export const formatCollege = (college: College): CollegeDto => {
-  const res: CollegeDto = {
+  return {
     id: college.id,
-    college: college.name,
+    name: college.name,
     isButteryIntegrated: college.isButteryIntegrated,
-    isAcceptingOrders: college.isAcceptingOrders,
     daysOpen: college.daysOpen,
     openTime: college.openTime,
     closeTime: college.closeTime,
     isOpen: college.isOpen
   }
-
-  return res
 }
 
 export const formatMenuItem = (menuItem: MenuItem & { college: College }): MenuItemDto => {
-  const formattedMenuItem = {
+  return {
     id: menuItem.id,
-    item: menuItem.name,
+    name: menuItem.name,
     price: menuItem.price,
-    college: menuItem.college.name,
+    collegeId: menuItem.college.id,
     isActive: menuItem.isActive,
     description: menuItem.description,
     foodType: menuItem.type
   }
-  return formattedMenuItem
 }

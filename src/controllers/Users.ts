@@ -2,11 +2,11 @@ import type { Request, Response } from 'express'
 
 import { UserRole } from '@prisma/client'
 import prisma from '@src/config/prismaClient'
-import { findUserByNetId, getCollegeFromName, getUserFromId } from '@utils/prismaUtils'
+import { findUserByNetId, getCollegeFromId, getUserFromId } from '@utils/prismaUtils'
 import { formatOrderItem, formatUser, formatUsers } from '@utils/dtoConverters'
 import HTTPError from '@src/utils/httpError'
-import { MILLISECONDS_UNTIL_ORDER_IS_EXPIRED } from '@src/utils/constants'
-import type { CreateUserBody, UpdateUserBody, VerifyStaffLoginBody } from '@src/utils/bodyTypes'
+import { MILLISECONDS_UNTIL_ORDER_IS_EXPIRED } from '@utils/constants'
+import type { CreateUserBody, UpdateUserBody, VerifyStaffLoginBody } from '@utils/bodyTypes'
 
 export async function getAllUsers (_req: Request, res: Response): Promise<void> {
   const users = await prisma.user.findMany({ include: { college: true } })
@@ -58,27 +58,26 @@ export async function createUser (req: Request, res: Response): Promise<void> {
   const requestBody = req.body as CreateUserBody
 
   // In case the user already exists
-  const existingUser = await findUserByNetId(requestBody.netid)
+  const existingUser = await findUserByNetId(requestBody.netId)
   if (existingUser !== null) {
     const formattedUser = await formatUser(existingUser)
     res.json(formattedUser)
     return
   }
 
-  const college = await getCollegeFromName(requestBody.college)
+  const college = await getCollegeFromId(requestBody.collegeId)
 
   const user = await prisma.user.create({
     data: {
-      netId: requestBody.netid,
-      name: requestBody.name ?? requestBody.netid,
+      netId: requestBody.netId,
+      name: requestBody.name ?? requestBody.netId,
       college: {
         connect: {
           id: college.id
         }
       },
       role: UserRole.CUSTOMER,
-      email: requestBody.email ?? undefined,
-      token: requestBody.token ?? undefined
+      email: requestBody.email ?? undefined
     }
   })
 
