@@ -2,7 +2,7 @@ import type { Request, Response } from 'express'
 
 import { MenuItemType } from '@prisma/client'
 import prisma from '@src/config/prismaClient'
-import { getCollegeFromName, getMenuItemFromId } from '@utils/prismaUtils'
+import { getCollegeFromId, getMenuItemFromId } from '@utils/prismaUtils'
 import { formatMenuItem } from '@utils/dtoConverters'
 import type { CreateMenuItemBody, UpdateMenuItemBody } from '@utils/bodyTypes'
 
@@ -25,10 +25,10 @@ export async function getMenuItem (req: Request, res: Response): Promise<void> {
 export async function createMenuItem (req: Request, res: Response): Promise<void> {
   const requestBody = req.body as CreateMenuItemBody
 
-  const collegeData = await getCollegeFromName(requestBody.college)
+  const collegeData = await getCollegeFromId(requestBody.collegeId)
 
   const menuItemData = {
-    name: requestBody.item,
+    name: requestBody.name,
     price: requestBody.price,
     college: {
       connect: {
@@ -52,7 +52,7 @@ export async function updateMenuItem (req: Request, res: Response): Promise<void
   await getMenuItemFromId(parseInt(req.params.menuItemId))
 
   const menuItemData = {
-    name: requestBody.item ?? undefined,
+    name: requestBody.name ?? undefined,
     price: requestBody.price ?? undefined,
     isActive: requestBody.isActive ?? undefined,
     description: requestBody.description ?? undefined,

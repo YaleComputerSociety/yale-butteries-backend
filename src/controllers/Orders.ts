@@ -4,7 +4,7 @@ import prisma from '@src/config/prismaClient'
 import type { OrderStatus } from '@prisma/client'
 import { OrderItemStatus } from '@prisma/client'
 import { formatOrder, formatOrderItem, formatOrders } from '@utils/dtoConverters'
-import { getCollegeFromName, getOrderFromId, getOrderItemFromId, getUserFromId } from '@utils/prismaUtils'
+import { getCollegeFromId, getOrderFromId, getOrderItemFromId, getUserFromId } from '@utils/prismaUtils'
 import HTTPError from '@src/utils/httpError'
 import { MILLISECONDS_UNTIL_ORDER_IS_EXPIRED } from '@utils/constants'
 import type { CreateOrderBody, UpdateOrderBody, UpdateOrderItemBody } from '@utils/bodyTypes'
@@ -16,28 +16,31 @@ export async function getOrder (req: Request, res: Response): Promise<void> {
 }
 
 export async function getAllOrdersFromCollege (req: Request, res: Response): Promise<void> {
-  const college = await getCollegeFromName(req.params.collegeName)
+  // Check the college exists
+  const college = await getCollegeFromId(parseInt(req.params.collegeId))
 
   const orders = await prisma.order.findMany({
     where: {
-      collegeId: college.id
+      collegeId: parseInt(req.params.collegeId)
     },
     include: {
       orderItems: true
     }
   })
 
-  const formattedOrders = await formatOrders(orders, college.name)
-  res.json({ transactionHistories: formattedOrders })
+  const formattedOrders = await formatOrders(orders, college)
+  res.json(formattedOrders)
 }
 
 export async function getRecentOrdersFromCollege (req: Request, res: Response): Promise<void> {
-  const college = await getCollegeFromName(req.params.collegeName)
+  // Check the college exists
+  const college = await getCollegeFromId(parseInt(req.params.collegeId))
+
   const orderExpirationTime = new Date(Date.now() - MILLISECONDS_UNTIL_ORDER_IS_EXPIRED)
 
   const orders = await prisma.order.findMany({
     where: {
-      collegeId: college.id,
+      collegeId: parseInt(req.params.collegeId),
       createdAt: {
         gte: orderExpirationTime
       }
@@ -47,8 +50,8 @@ export async function getRecentOrdersFromCollege (req: Request, res: Response): 
     }
   })
 
-  const formattedOrders = await formatOrders(orders, college.name)
-  res.json({ transactionHistories: formattedOrders })
+  const formattedOrders = await formatOrders(orders, college)
+  res.json(formattedOrders)
 }
 
 export async function createOrder (req: Request, res: Response): Promise<void> {
@@ -61,7 +64,7 @@ export async function createOrder (req: Request, res: Response): Promise<void> {
 
   const requestBody = req.body as CreateOrderBody
 
-  const college = await getCollegeFromName(requestBody.college)
+  const college = await getCollegeFromId(requestBody.collegeId)
 
   // test is user exists
   // TODO test if user is the actual user sending the request
@@ -69,9 +72,9 @@ export async function createOrder (req: Request, res: Response): Promise<void> {
 
   // Get sanitized orderItems list
   const orderItems: NewOrderItem[] = []
-  for (const item of requestBody.transactionItems) {
+  for (const item of requestBody.orderItems) {
     orderItems.push({
-      price: item.itemCost,
+      price: item.price,
       status: OrderItemStatus.QUEUED,
       menuItemId: item.menuItemId,
       userId: requestBody.userId
@@ -118,7 +121,7 @@ export async function updateOrderItem (req: Request, res: Response): Promise<voi
       id: parseInt(req.params.orderItemId)
     },
     data: {
-      status: requestBody.orderStatus as OrderItemStatus
+      status: requestBody.status as OrderItemStatus
     }
   })
 
@@ -128,7 +131,7 @@ export async function updateOrderItem (req: Request, res: Response): Promise<voi
   res.json(formattedOrderItem)
 }
 
-// This function is currently unused and probably doesn't work
+// This function is currently unused
 export async function updateOrder (req: Request, res: Response): Promise<void> {
   const requestBody = req.body as UpdateOrderBody
 
@@ -140,8 +143,8 @@ export async function updateOrder (req: Request, res: Response): Promise<void> {
       id: parseInt(req.params.orderId)
     },
     data: {
-      status: requestBody.in_progress as OrderStatus ?? undefined,
-      price: requestBody.total_price ?? undefined
+      status: requestBody.status as OrderStatus ?? undefined,
+      price: requestBody.price ?? undefined
     },
     include: {
       orderItems: true

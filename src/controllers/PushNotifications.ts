@@ -18,7 +18,7 @@ export async function createPushNotifications (req: Request, res: Response): Pro
   const requestBody = req.body as SubscribePushNotificationsBody
 
   const interval = setInterval(() => {
-    checkAndUpdateOrder(requestBody.transactionId, interval, requestBody.pushToken).catch((e) => {
+    checkAndUpdateOrder(requestBody.orderId, interval, requestBody.pushToken).catch((e) => {
       console.error('Error in interval: ', e)
       clearInterval(interval)
     })
@@ -28,8 +28,8 @@ export async function createPushNotifications (req: Request, res: Response): Pro
 }
 
 // TODO: put the update order part of this function into the updateOrderItem function instead of here, and then only check the order status in this function
-async function checkAndUpdateOrder (transactionId: number, interval: NodeJS.Timer, token?: string): Promise<void> {
-  const order = await getOrderFromId(transactionId)
+async function checkAndUpdateOrder (orderId: number, interval: NodeJS.Timer, token?: string): Promise<void> {
+  const order = await getOrderFromId(orderId)
   const items = order.orderItems
 
   // This is the part that should be merged into updateOrderItem
@@ -44,7 +44,7 @@ async function checkAndUpdateOrder (transactionId: number, interval: NodeJS.Time
     }, 0)
 
     await updateOrderInternal({
-      id: transactionId,
+      id: orderId,
       readyAt: new Date(),
       status: 'READY',
       price
@@ -62,7 +62,7 @@ async function checkAndUpdateOrder (transactionId: number, interval: NodeJS.Time
         })
     }
 
-    // const pii = await getPaymentIntentIdFromId(requestBody.transactionId)
+    // const pii = await getPaymentIntentIdFromId(requestBody.orderId)
     // await stripe.paymentIntents.capture(pii, {
     //   amount_to_capture: price,
     // })
@@ -77,13 +77,13 @@ async function checkAndUpdateOrder (transactionId: number, interval: NodeJS.Time
     }
 
     await updateOrderInternal({
-      id: transactionId,
+      id: orderId,
       readyAt: new Date(),
       status: 'CANCELLED',
       price: 0
     })
 
-    // stripe.paymentIntents.cancel(await getPaymentIntentIdFromId(requestBody.transactionId))
+    // stripe.paymentIntents.cancel(await getPaymentIntentIdFromId(requestBody.orderId))
   }
 }
 
