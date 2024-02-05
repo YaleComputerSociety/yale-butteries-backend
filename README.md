@@ -65,11 +65,11 @@ You can directly use SQL queries to view/manipulate data. Just type your SQL que
 ### Useful SQL Queries
 
 ```SQL
-SELECT * FROM "TransactionItem" ORDER BY id DESC LIMIT 10;
+SELECT * FROM "order_item" ORDER BY id DESC LIMIT 10;
 SELECT id, order_complete, in_progress, total_price, "collegeId", "userId", charged_price, payment_intent_id FROM "TransactionHistory" ORDER BY id DESC LIMIT 3;
-UPDATE "TransactionItem" SET order_status = 'FINISHED' WHERE id=?;
+UPDATE "order_item" SET status = 'READY' WHERE id=?;
 SELECT id, is_active, item, price, "collegeId" FROM "MenuItem";
-UPDATE "MenuItem" SET is_active = false WHERE id=1;
+UPDATE "menu_item" SET is_active = false WHERE id=1;
 UPDATE "user" SET role='STAFF' WHERE "netId"='blah';
 ```
 
