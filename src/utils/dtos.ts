@@ -5,50 +5,48 @@ import type { MenuItemType, OrderItemStatus, OrderStatus, UserRole } from '@pris
 
 export interface UserDto {
   id: string
-  netId: string // netId
+  netId: string 
   name: string
-  collegeId: number // collegeId: number
-  role: UserRole // role, enum
-  email?: string // optional
+  collegeId: number 
+  role: UserRole 
+  email?: string
   currentOrder?: unknown
 }
 
 export interface OrderItemDto {
   id: number
-  price: number // price
-  status: OrderItemStatus // status, enum
+  price: number 
+  status: OrderItemStatus
   menuItemId: number
   name: string
-  userId: string // userId
+  userId: string 
 }
 
 export interface OrderDto {
   id: number
-  collegeId: number // should be collegeId: number
-  // inProgress: string // remove
-  status: OrderStatus // create
+  collegeId: number
+  status: OrderStatus
   price: number
   userId: string
   paymentIntentId: string
-  orderItems: OrderItemDto[] // orderItems
-  createdAt: Date // createdAt
+  orderItems: OrderItemDto[] 
+  createdAt: Date 
 }
 
 export interface MenuItemDto {
-  id: number // mandatory
-  name: string // name
-  collegeId: number // should be collegeId: number
+  id: number 
+  name: string 
+  collegeId: number 
   price: number
-  description: string // mandatory
-  // limitedTime?: boolean // remove
+  description: string 
   isActive: boolean
-  foodType: MenuItemType // type, enum
+  foodType: MenuItemType 
 }
 
 export interface CollegeDto {
   id: number
-  name: string // name
-  isButteryIntegrated: boolean // isButteryIntegrated
+  name: string 
+  isButteryIntegrated: boolean
   isOpen: boolean
   daysOpen: string[]
   openTime: string
