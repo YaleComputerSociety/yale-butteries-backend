@@ -51,4 +51,5 @@ export interface CollegeDto {
   daysOpen: string[]
   openTime: string
   closeTime: string
+  isAcceptingOrders: boolean
 }
