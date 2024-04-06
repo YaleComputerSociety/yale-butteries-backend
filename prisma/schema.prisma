@@ -38,7 +38,7 @@ model College {
   name                String     @unique // e.g. Morse
   butteryName         String     @unique // e.g. The Morsel
   isButteryIntegrated Boolean    @default(false) // whether this buttery is integrated into Yale Butteries
-  isAcceptingOrders   Boolean    @default(false) // whether this buttery is accepting orders
+  isAcceptingOrders   Boolean    @default(true) // whether this buttery is accepting orders
   isOpen              Boolean    @default(true) // set to false if the buttery closes early or wants to stop taking in orders from Yale Butteries for a period of tiem
   daysOpen            String[]
   openTime            String     @default("22:00")
