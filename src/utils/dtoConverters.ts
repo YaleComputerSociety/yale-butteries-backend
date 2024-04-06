@@ -114,7 +114,8 @@ export const formatCollege = (college: College): CollegeDto => {
     daysOpen: college.daysOpen,
     openTime: college.openTime,
     closeTime: college.closeTime,
-    isOpen: college.isOpen
+    isOpen: college.isOpen,
+    isAcceptingOrders: college.isAcceptingOrders
   }
 }
 
