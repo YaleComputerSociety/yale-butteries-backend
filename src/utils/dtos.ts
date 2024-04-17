@@ -5,21 +5,21 @@ import type { MenuItemType, OrderItemStatus, OrderStatus, UserRole } from '@pris
 
 export interface UserDto {
   id: string
-  netId: string 
+  netId: string
   name: string
-  collegeId: number 
-  role: UserRole 
+  collegeId: number
+  role: UserRole
   email?: string
   currentOrder?: unknown
 }
 
 export interface OrderItemDto {
   id: number
-  price: number 
+  price: number
   status: OrderItemStatus
   menuItemId: number
   name: string
-  userId: string 
+  userId: string
 }
 
 export interface OrderDto {
@@ -29,23 +29,23 @@ export interface OrderDto {
   price: number
   userId: string
   paymentIntentId: string
-  orderItems: OrderItemDto[] 
-  createdAt: Date 
+  orderItems: OrderItemDto[]
+  createdAt: Date
 }
 
 export interface MenuItemDto {
-  id: number 
-  name: string 
-  collegeId: number 
+  id: number
+  name: string
+  collegeId: number
   price: number
-  description: string 
+  description: string
   isActive: boolean
-  foodType: MenuItemType 
+  foodType: MenuItemType
 }
 
 export interface CollegeDto {
   id: number
-  name: string 
+  name: string
   isButteryIntegrated: boolean
   isOpen: boolean
   daysOpen: string[]
